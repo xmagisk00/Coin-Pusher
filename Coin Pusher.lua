@@ -1,7 +1,7 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "Script",
+   Name = "COIN PUSHER [Alpha1.1]",
    LoadingTitle = "Loading...",
    LoadingSubtitle = "by YourBae",
 })
