@@ -1,8 +1,3 @@
---[[
-  Cold Blood - Dino Hunting helper (UI + Dino ESP Alive/Dead + Auto Aim = Aimbot + Silent Aim)
-  LeftAlt = hide/show, "_" = collapse, X = unload, drag the title bar to move.
-]]
-
 if not game:IsLoaded() then game.Loaded:Wait() end
 
 local Players          = game:GetService("Players")
@@ -13,9 +8,6 @@ local HttpService      = game:GetService("HttpService")
 local LP        = Players.LocalPlayer
 local PlayerGui = LP:WaitForChild("PlayerGui")
 
-----------------------------------------------------------------------
--- Config saved between sessions
-----------------------------------------------------------------------
 local FOLDER, FILE = "ColdBlood", "ColdBlood"
 local CFG_PATH = FOLDER .. "/" .. FILE .. ".json"
 if isfolder and not isfolder(FOLDER) then pcall(makefolder, FOLDER) end
@@ -33,15 +25,12 @@ local function saveCfg()
     end)
 end
 
-----------------------------------------------------------------------
--- Constants & state
-----------------------------------------------------------------------
 local GREEN = Color3.fromRGB(60, 255, 60)
 local WHITE = Color3.fromRGB(245, 245, 245)
 local BLACK = Color3.fromRGB(0, 0, 0)
 local WIN_W, WIN_H, BAR_H = 330, 400, 42
 
-local UI = {
+local UI: any = {
     State = {
         DinoESPAlive = false, DinoESPDead = false,
         Aimbot = false, AimAlways = false, SilentAim = false,
@@ -52,9 +41,6 @@ local alive = true
 local connections = {}
 local function track(c) connections[#connections + 1] = c return c end
 
-----------------------------------------------------------------------
--- Helper
-----------------------------------------------------------------------
 local function corner(o, r)
     local c = Instance.new("UICorner")
     c.CornerRadius = UDim.new(0, r or 4)
@@ -73,9 +59,6 @@ local function isPress(i)
     return i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch
 end
 
-----------------------------------------------------------------------
--- Main window
-----------------------------------------------------------------------
 local gui = Instance.new("ScreenGui")
 gui.Name = "ColdBlood"
 gui.ResetOnSpawn = false
@@ -105,7 +88,6 @@ bar.BorderSizePixel = 0
 corner(bar, 14)
 bar.Parent = main
 
--- covers the bottom corners of the title bar so its bottom edge stays straight
 local barFill = Instance.new("Frame")
 barFill.Size = UDim2.new(1, 0, 0, 14)
 barFill.Position = UDim2.new(0, 0, 1, -14)
@@ -178,10 +160,6 @@ local orderN = 0
 local function nextOrder() orderN = orderN + 1 return orderN end
 UI.nextOrder = nextOrder
 
-----------------------------------------------------------------------
--- Components
-----------------------------------------------------------------------
--- Text box (colored title + body). A title containing "Hunting" is red, otherwise green.
 function UI.paragraph(title, content)
     local lbl = Instance.new("TextLabel")
     lbl.Size = UDim2.new(1, 0, 0, 0)
@@ -210,7 +188,6 @@ function UI.paragraph(title, content)
     return obj
 end
 
--- 2-column button grid
 function UI.group()
     local f = Instance.new("Frame")
     f.Size = UDim2.new(1, 0, 0, 0)
@@ -243,14 +220,14 @@ local function makeBtn(parent, text)
     return b
 end
 
-function UI.button(parent, name, order, cb)   -- larger order = placed last in the grid
+function UI.button(parent, name, order, cb)
     local b = makeBtn(parent, name)
     b.LayoutOrder = order
     b.MouseButton1Click:Connect(function() pcall(cb) end)
     return b
 end
 
-function UI.toggle(parent, name, flag, cb, onColor, default)   -- onColor = color when on, default = initial value
+function UI.toggle(parent, name, flag, cb, onColor, default)
     local on = saved[flag]
     if on == nil then on = (default == true) end
     local b = makeBtn(parent, name)
@@ -263,7 +240,7 @@ function UI.toggle(parent, name, flag, cb, onColor, default)   -- onColor = colo
         pcall(cb, on)
     end)
     render()
-    pcall(cb, on)   -- apply saved value
+    pcall(cb, on)
     return b
 end
 
@@ -334,9 +311,6 @@ function UI.slider(name, flag, min, max, inc, default, suffix, cb)
     pcall(cb, value)
 end
 
-----------------------------------------------------------------------
--- Services & helpers
-----------------------------------------------------------------------
 local RunService        = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace         = game:GetService("Workspace")
@@ -346,9 +320,6 @@ local function safe(tag, fn, ...)
     return (xpcall(fn, function(e) return e end, ...))
 end
 
-----------------------------------------------------------------------
--- Page content: info, toggles, sliders
-----------------------------------------------------------------------
 UI.DinoInfo = UI.paragraph("Cold Blood", "Waiting for dinos...")
 UI.toggles  = UI.group()
 
@@ -362,8 +333,8 @@ end
 UI.toggle(UI.toggles, "Dino ESP (Alive)", "DinoESPAlive", onToggle("DinoESPAlive"))
 UI.toggle(UI.toggles, "Dino ESP (Dead)",  "DinoESPDead",  onToggle("DinoESPDead"))
 UI.toggle(UI.toggles, "Auto Aim", "SilentAim", function(v)
-    onToggle("SilentAim")(v)   -- Silent Aim
-    onToggle("Aimbot")(v)      -- Aimbot (camera lock while aiming / holding AIM)
+    onToggle("SilentAim")(v)
+    onToggle("Aimbot")(v)
 end)
 UI.toggle(UI.toggles, "Wall Check (visible targets only)", "WallCheck", onToggle("WallCheck"), nil, true)
 UI.toggle(UI.toggles, "Hide Grass/Bushes", "HideGrass", onToggle("HideGrass"))
@@ -375,9 +346,6 @@ UI.slider("Aim FOV",      "AimFOV",      50, 600, 10, 200, "px",  function(v) UI
 UI.slider("Aim Smooth",   "AimSmooth",   0.1, 1, 0.1, 0.4, "(1 = instant)", function(v) UI.State.AimSmooth = v end)
 UI.slider("Auto Aim Max Angle", "SilentAngle", 5, 180, 5, 60, "deg", function(v) UI.State.SilentAngle = v end)
 
-----------------------------------------------------------------------
--- Dino logic
-----------------------------------------------------------------------
 local ALIVE_COL, DEAD_COL = Color3.fromRGB(60, 255, 60), Color3.fromRGB(255, 70, 70)
 local HEAD_PARTS = {"Head", "Brain", "EyeR", "EyeL", "Cheek", "Snout"}
 local BODY_PARTS = {"Heart", "LowerLungs", "UpperLungs", "Chest", "Neck", "Spine", "Liver", "Brisket", "Pelvis", "Belly", "Haunch"}
@@ -385,9 +353,9 @@ local DEAD_MARK_TTL = 600
 
 local deadIds, deadMarks, speciesOf = {}, {}, {}
 local gameAiming, silentTarget, silentName, fireCount = false, nil, nil, 0
-local aimHold = false          -- on-screen AIM button is being held
-local claimedIds = {}          -- dinos already claimed (ESP removed)
-local mineIds = {}             -- dinos whose ClaimOwner == my UserId (only these are claimable by me)
+local aimHold = false
+local claimedIds = {}
+local mineIds = {}
 local espFolder = Instance.new("Folder")
 espFolder.Name = "ESP"
 espFolder.Parent = gui
@@ -408,7 +376,6 @@ local scanFliers
 local function scanContainer(list, c, depth)
     for _, ch in ipairs(c:GetChildren()) do
         if ch.Name == "Dinos" or ch.Name == "Terrain" or ch.Name == "DinoVisuals" or ch.Name == "PQ_Fliers" or ch.Name == "PQ_Birds" or ch == cam() then
-            -- skip
         elseif (ch:IsA("Model") and ch:GetAttribute("SpeciesId") ~= nil) then
             list[#list + 1] = ch
         elseif nameHas(ch.Name, EXTRA_PAT) then
@@ -460,7 +427,7 @@ end
 local modelsCache, modelsT = {}, 0
 local function allDinoModels()
     local now = os.clock()
-    if now - modelsT < 0.2 then return modelsCache end   -- reuse the list for a short time
+    if now - modelsT < 0.2 then return modelsCache end
     modelsT = now
     if now - extraT > 5 then
         extraT = now
@@ -499,7 +466,6 @@ local function rootOf(model)
     if model:IsA("BasePart") then return model end
     return model.PrimaryPart or model:FindFirstChild("Pelvis") or model:FindFirstChildWhichIsA("BasePart", true)
 end
--- returns the reason a model counts as dead (nil = alive); used for debug logging
 local DEAD_FLAGS = {"Dead", "IsDead", "Died", "Carcass", "Corpse", "Killed"}
 local DEAD_STRS = {"State", "Pose", "Gait"}
 local function deadReason(model)
@@ -528,7 +494,6 @@ local function isDead(model)
     return deadReason(model) ~= nil
 end
 
--- Incoming remotes: deaths, species, claims
 task.spawn(function()
     local remotes = ReplicatedStorage:WaitForChild("Remotes", 30)
     if not remotes then return end
@@ -556,7 +521,6 @@ task.spawn(function()
     end
 end)
 
--- ESP
 local function removeEntry(key)
     local e = entries[key]
     if not e then return end
@@ -620,7 +584,6 @@ local function refresh()
                 local mine = true
                 if dead then
                     dead_n += 1
-                    -- the game stores the claimer's UserId in ClaimOwner; only my own kills can be claimed by me
                     mine = model:GetAttribute("ClaimOwner") == LP.UserId
                     if mine then
                         mine_n += 1
@@ -633,7 +596,6 @@ local function refresh()
                     local r0 = rootOf(model)
                     if r0 then lastPos[model.Name] = r0.Position end
                 end
-                -- dead dinos: only show the ones I killed / can claim (ClaimOwner == my UserId)
                 local hideIt = dead and not mine
                 if not hideIt and ((dead and State.DinoESPDead) or (not dead and State.DinoESPAlive)) then
                     local root = rootOf(model)
@@ -702,7 +664,7 @@ local function updateLabels()
             local rng = State.ESPRange
             show = e.dist <= rng and ((not hasNear) or e.dist <= State.NearRadius)
             if e.bb.Enabled ~= show then e.bb.Enabled = show end
-            if show then   -- no text work for hidden labels
+            if show then
                 local txt = string.format("%s [%s]\n%d st", tostring(e.species), e.dead and "DEAD - CLAIM" or "ALIVE", math.floor(e.dist))
                 if e.label.Text ~= txt then e.label.Text = txt end
             end
@@ -722,12 +684,10 @@ task.spawn(function()
     end
 end)
 
--- Target: HEAD first (if reachable), otherwise BODY
 local rayParams = RaycastParams.new()
 rayParams.FilterType = Enum.RaycastFilterType.Exclude
 local stats = {}
 
--- Hide grass/bushes (local visual only; the real models still exist on the server)
 local GRASS_PAT = {"grass", "fern", "bush", "shrub", "thicket", "foliage", "weed", "reed", "undergrowth", "flower"}
 local hiddenParts, hiddenDecals, hiddenRoots = {}, {}, {}
 local grassApplied, grassConn, terrainDeco = false, nil, nil
@@ -798,7 +758,6 @@ local function restoreGrass()
     end)
 end
 
--- Wall Check raycast filter: ignore character and camera
 local lastCam, lastChar
 local function rebuildFilter()
     local c, ch = cam(), LP.Character
@@ -829,7 +788,6 @@ local function visible(c, part, model)
     return (not r) or r.Instance:IsDescendantOf(model)
 end
 
--- find the first reachable part in the list; returns position, distance to screen center, part name / fail reason
 local function pickPart(c, model, names, center)
     local why = "none"
     local found = false
@@ -843,6 +801,7 @@ local function pickPart(c, model, names, center)
             elseif not visible(c, p, model) then why = "blocked"
             else return p.Position, d, label end
         end
+        return nil
     end
     for _, n in ipairs(names) do
         local p = model:IsA("BasePart") and model or model:FindFirstChild(n)
@@ -852,7 +811,7 @@ local function pickPart(c, model, names, center)
             if pos then return pos, d, lb end
         end
     end
-    if not found and names == BODY_PARTS then   -- model without named parts (e.g. Pteranodon): use root
+    if not found and names == BODY_PARTS then
         local r = rootOf(model)
         if r then
             local pos, d, lb = try(r, r.Name)
@@ -874,7 +833,7 @@ local function getTarget()
         stats.total += 1
         local r0 = rootOf(model)
         if r0 and (r0.Position - camPos).Magnitude > maxRange then
-            stats.range += 1   -- too far: skip the expensive checks
+            stats.range += 1
         elseif claimedIds[model.Name] or isDead(model) then
             stats.dead += 1
         elseif flierSet[model] then
@@ -889,7 +848,7 @@ local function getTarget()
             local pos, d, nm = pickPart(c, model, HEAD_PARTS, center)
             if pos then
                 if not hD or d < hD then hPos, hD, hName, hModel = pos, d, model.Name .. "." .. nm .. "(HEAD)", model end
-            elseif not hPos then   -- no head reachable yet -> check body
+            elseif not hPos then
                 local bp, bd, bn = pickPart(c, model, BODY_PARTS, center)
                 if bp then
                     if not bD or bd < bD then bPos, bD, bName, bModel = bp, bd, model.Name .. "." .. bn .. "(BODY)", model end
@@ -899,14 +858,11 @@ local function getTarget()
             end
         end
     end
-    -- head wins even if a body part is closer to the crosshair
-    -- ground dinos (inside FOV) take priority; otherwise the nearest unobstructed Pteranodon
     local pos, name = hPos or bPos or fPos, hName or bName or fName
     stats.best = name or "none"
     return pos, name
 end
 
--- On-screen AIM button (hold = aimbot active, release = stop). Useful on mobile/touch.
 local aimBtn = Instance.new("TextButton")
 aimBtn.Name = "AimHold"
 aimBtn.Size = UDim2.fromOffset(58, 58)
@@ -938,7 +894,6 @@ track(aimBtn.InputBegan:Connect(function(i)
     end
 end))
 
--- Aimbot + Silent Aim target cache (runs after the game camera)
 local aimRot
 local cachedPos, cachedName, lastScan = nil, nil, 0
 local function aimStep()
@@ -951,7 +906,6 @@ local function aimStep()
         aimRot = nil
         return
     end
-    -- target scan is heavy (all dinos + raycasts): ~16x/sec while aiming, ~8x/sec for silent aim only
     local now = os.clock()
     if now - lastScan >= (active and 0.06 or 0.12) then
         lastScan = now
@@ -973,9 +927,6 @@ RunService:BindToRenderStep("ColdBloodAim", Enum.RenderPriority.Last.Value, func
     if alive then safe("aimStep", aimStep) end
 end)
 
--- FireServer hook: Silent Aim + aim state detection.
--- IMPORTANT: no Instance method calls inside the hook before old(),
--- and setnamecallmethod must be restored, otherwise shots break.
 local function handleFire(self, ...)
     if typeof(self) ~= "Instance" then return end
     local nm = self.Name
@@ -1003,6 +954,7 @@ local function handleFire(self, ...)
             return n, args
         end
     end
+    return nil
 end
 
 local hooked = false
@@ -1035,9 +987,6 @@ UI.onClose = function()
     pcall(function() espFolder:Destroy() end)
 end
 
-----------------------------------------------------------------------
--- Minimize / hide / drag / close
-----------------------------------------------------------------------
 local collapsed = false
 btnMin.MouseButton1Click:Connect(function()
     collapsed = not collapsed
@@ -1068,7 +1017,6 @@ end
 
 function UI.destroy() pcall(function() gui:Destroy() end) end
 
--- X in the title bar = unload
 btnClose.MouseButton1Click:Connect(function()
     alive = false
     for _, c in ipairs(connections) do pcall(function() c:Disconnect() end) end
